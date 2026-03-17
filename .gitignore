@@ -1,0 +1,70 @@
+# ===========================
+# Java / Spring Boot (backend)
+# ===========================
+backend/target/
+backend/*.log
+backend/.mvn/wrapper/maven-wrapper.jar
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+hs_err_pid*
+
+# ===========================
+# Node / Next.js (frontend)
+# ===========================
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.pnp
+frontend/.pnp.js
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+
+# ===========================
+# 환경변수 / 시크릿
+# ===========================
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+frontend/.env
+frontend/.env.local
+backend/src/main/resources/application-local.yml
+backend/src/main/resources/application-secret.yml
+
+# ===========================
+# 임시/출력 파일
+# ===========================
+temp/
+output/
+bgm/
+*.mp4
+*.mp3
+*.wav
+*.png
+*.jpg
+*.jpeg
+*.gif
+!frontend/public/**
+
+# ===========================
+# IDE / OS
+# ===========================
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===========================
+# Maven wrapper (선택적)
+# ===========================
+!backend/.mvn/wrapper/maven-wrapper.properties

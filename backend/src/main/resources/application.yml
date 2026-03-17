@@ -1,0 +1,77 @@
+spring:
+  application:
+    name: community-shortform-backend
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/shortform_db
+    username: ${DB_USERNAME:shortform}
+    password: ${DB_PASSWORD:shortform1234}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 5000ms
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    virtual-host: /
+
+  servlet:
+    multipart:
+      max-file-size: 500MB
+      max-request-size: 500MB
+
+server:
+  port: 8080
+
+# 커스텀 설정
+app:
+  openai:
+    api-key: ${OPENAI_API_KEY:}
+    model: gpt-4o
+    whisper-model: whisper-1
+    base-url: https://api.openai.com/v1
+
+  storage:
+    temp-dir: ${TEMP_DIR:./temp}
+    output-dir: ${OUTPUT_DIR:./output}
+    bgm-dir: ${BGM_DIR:./bgm}
+    temp-ttl-hours: 24
+
+  rabbitmq:
+    render-queue: render.queue
+    preview-queue: preview.queue
+    exchange: shortform.exchange
+
+  cors:
+    allowed-origins: ${CORS_ORIGINS:http://localhost:3000}
+
+  reddit:
+    client-id: ${REDDIT_CLIENT_ID:}
+    client-secret: ${REDDIT_CLIENT_SECRET:}
+    user-agent: CommunityShortform/1.0
+
+logging:
+  pattern:
+    console: "%d{HH:mm:ss.SSS} %highlight(%-5level) %cyan([%15.15t]) %yellow(%-40.40logger{36}) : %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%t] %-40.40logger{36} : %msg%n"
+  level:
+    com.shortform: DEBUG
+    org.springframework.web: INFO
+    org.hibernate.SQL: WARN
