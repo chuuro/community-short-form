@@ -24,6 +24,19 @@ public interface CommunityParser {
             String sourceUrl,
             com.shortform.backend.domain.enums.MediaType mediaType,
             String altText,
-            int orderIndex
-    ) {}
+            int orderIndex,
+            String thumbnailUrl,
+            boolean isGif,
+            Integer width,
+            Integer height,
+            Double durationSeconds
+    ) {
+        // 기존 코드 호환 생성자
+        public ParsedMedia(String sourceUrl,
+                           com.shortform.backend.domain.enums.MediaType mediaType,
+                           String altText,
+                           int orderIndex) {
+            this(sourceUrl, mediaType, altText, orderIndex, null, false, null, null, null);
+        }
+    }
 }

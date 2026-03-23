@@ -2,6 +2,9 @@ spring:
   application:
     name: community-shortform-backend
 
+  config:
+    import: optional:file:.env[.properties]
+
   datasource:
     url: jdbc:postgresql://localhost:5432/shortform_db
     username: ${DB_USERNAME:shortform}
@@ -54,23 +57,39 @@ app:
     bgm-dir: ${BGM_DIR:./bgm}
     temp-ttl-hours: 24
 
+  cors:
+    allowed-origins: ${CORS_ORIGINS:http://localhost:3000}
+
   rabbitmq:
     render-queue: render.queue
     preview-queue: preview.queue
     exchange: shortform.exchange
-
-  cors:
-    allowed-origins: ${CORS_ORIGINS:http://localhost:3000}
 
   reddit:
     client-id: ${REDDIT_CLIENT_ID:}
     client-secret: ${REDDIT_CLIENT_SECRET:}
     user-agent: CommunityShortform/1.0
 
+  news-api:
+    api-key: ${NEWS_API_KEY:}
+    base-url: https://newsapi.org/v2
+    fetch-limit-on-startup: 3
+    default-language: en
+
+  pexels:
+    api-key: ${PEXELS_API_KEY:}
+    base-url: https://api.pexels.com/v1
+    photos-per-keyword: 3
+    videos-per-keyword: 2
+
+  minio:
+    endpoint: ${MINIO_ENDPOINT:localhost:9000}
+    accessKey: ${MINIO_ACCESS_KEY:minioadmin}
+    secretKey: ${MINIO_SECRET_KEY:minioadmin123}
+    bucket: ${MINIO_BUCKET:shortform}
+    secure: false
+
 logging:
-  pattern:
-    console: "%d{HH:mm:ss.SSS} %highlight(%-5level) %cyan([%15.15t]) %yellow(%-40.40logger{36}) : %msg%n"
-    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%t] %-40.40logger{36} : %msg%n"
   level:
     com.shortform: DEBUG
     org.springframework.web: INFO

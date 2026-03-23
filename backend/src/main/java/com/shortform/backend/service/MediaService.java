@@ -59,6 +59,11 @@ public class MediaService {
                     .sourceUrl(parsed.sourceUrl())
                     .altText(parsed.altText())
                     .orderIndex(parsed.orderIndex())
+                    .thumbnailUrl(parsed.thumbnailUrl())
+                    .isGif(parsed.isGif())
+                    .width(parsed.width())
+                    .height(parsed.height())
+                    .durationSeconds(parsed.durationSeconds())
                     .build();
 
             MediaItem saved = mediaItemRepository.save(item);
@@ -118,6 +123,13 @@ public class MediaService {
 
     private void downloadMediaFile(MediaItem item) {
         if (item.getSourceUrl() == null || item.getSourceUrl().isEmpty()) return;
+        // TEXT 타입(댓글)은 다운로드 불필요
+        if (item.getMediaType() == MediaType.TEXT) return;
+        // YouTube URL은 yt-dlp(Worker)가 처리 → 직접 다운로드 스킵
+        if (item.getSourceUrl().contains("youtube.com") || item.getSourceUrl().contains("youtu.be")) {
+            log.info("YouTube URL은 Worker에서 yt-dlp로 처리 예정: {}", item.getSourceUrl());
+            return;
+        }
 
         try {
             Path tempDir = Paths.get(appProperties.getStorage().getTempDir(),
@@ -167,7 +179,7 @@ public class MediaService {
             case VIDEO -> ".mp4";
             case IMAGE -> ".jpg";
             case AUDIO -> ".mp3";
-            default -> ".bin";
+            case TEXT -> ".txt";
         };
     }
 }

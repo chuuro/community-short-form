@@ -86,6 +86,13 @@
             <artifactId>jackson-databind</artifactId>
         </dependency>
 
+        <!-- MinIO (Presigned URL 재발급) -->
+        <dependency>
+            <groupId>io.minio</groupId>
+            <artifactId>minio</artifactId>
+            <version>8.5.11</version>
+        </dependency>
+
         <!-- Lombok removed - using explicit Java code -->
 
         <!-- Dev Tools -->
@@ -122,6 +129,7 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
+                    <jvmArguments>-Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8</jvmArguments>
                     <excludes>
                         <exclude>
                             <groupId>org.projectlombok</groupId>

@@ -6,20 +6,29 @@ export type ProjectStatus =
   | 'COMPLETED'
   | 'FAILED';
 
-export type MediaType = 'VIDEO' | 'IMAGE' | 'GIF';
+export type MediaType = 'VIDEO' | 'IMAGE' | 'AUDIO' | 'TEXT';
 export type CommunityType = 'REDDIT' | 'YOUTUBE' | 'UNKNOWN';
 export type OutputPlatform = 'YOUTUBE_SHORTS' | 'TIKTOK' | 'INSTAGRAM_REELS';
 
 export interface MediaItemResponse {
   id: number;
   mediaType: MediaType;
-  originalUrl: string;
-  storageUrl: string | null;
+  sourceUrl: string | null;
+  localPath: string | null;
   thumbnailUrl: string | null;
-  duration: number | null;
+  width: number | null;
+  height: number | null;
+  durationSeconds: number | null;
+  fileSizeBytes: number | null;
+  lowQuality: boolean;
+  gif: boolean;
   orderIndex: number;
-  startTime: number | null;
-  endTime: number | null;
+  exposureStartTime: number | null;
+  exposureEndTime: number | null;
+  included: boolean;
+  popularComment: boolean;
+  altText: string | null;
+  createdAt: string;
 }
 
 export interface SubtitleResponse {
@@ -48,11 +57,6 @@ export interface ProjectResponse {
   status: ProjectStatus;
   outputPlatform: OutputPlatform;
   thumbnailUrl: string | null;
-  outputFilePath: string | null;
-  previewFilePath: string | null;
-  mediaItems: MediaItemResponse[];
-  subtitles: SubtitleResponse[];
-  bgmTrack: BgmTrackResponse | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -64,7 +68,83 @@ export interface ApiResponse<T> {
   timestamp: string;
 }
 
+export interface ParseResultResponse {
+  projectId: number;
+  status: ProjectStatus;
+  communityUrl: string;
+  communityType: CommunityType;
+  outputPlatform: OutputPlatform;
+  title: string | null;
+  description: string | null;
+  thumbnailUrl: string | null;
+  videoCount: number;
+  imageCount: number;
+  textCount: number;
+  gifCount: number;
+  popularCommentCount: number;
+  lowQualityCount: number;
+  outputFilePath?: string | null;
+  mediaItems: MediaItemResponse[];
+  subtitles: SubtitleResponse[];
+  warnings: string[];
+}
+
 export interface CreateProjectRequest {
   communityUrl: string;
   outputPlatform: OutputPlatform;
+}
+
+// ─── News Article ─────────────────────────────────────────────
+export type NewsArticleStatus =
+  | 'FETCHED'
+  | 'METADATA_EXTRACTING'
+  | 'METADATA_READY'
+  | 'MULTIMEDIA_FETCHING'
+  | 'MULTIMEDIA_READY'
+  | 'RENDER_REQUESTED'
+  | 'RENDERED'
+  | 'FAILED';
+
+export interface NewsArticleResponse {
+  id: number;
+  url: string;
+  title: string;
+  description: string | null;
+  content: string | null;
+  urlToImage: string | null;
+  sourceName: string | null;
+  author: string | null;
+  publishedAt: string | null;
+  script: string | null;
+  translatedTitle: string | null;
+  translatedContent: string | null;
+  thumbnailKeywords: string | null;
+  imageSearchKeywords: string | null;
+  videoSearchKeywords: string | null;
+  estimatedDurationSeconds: number | null;
+  status: NewsArticleStatus;
+  errorMessage: string | null;
+  projectId: number | null;
+}
+
+export interface KeywordItem {
+  keyword: string;
+  source: 'openai' | 'user';
+  enabled: boolean;
+}
+
+export interface NewsArticleMediaResponse {
+  id: number;
+  mediaType: 'VIDEO' | 'IMAGE';
+  sourceUrl: string;
+  thumbnailUrl: string | null;
+  orderIndex: number;
+  selected: boolean;
+  searchKeyword: string | null;
+  width: number | null;
+  height: number | null;
+  durationSeconds: number | null;
+  exposureDurationSeconds: number | null;
+  photographerName: string | null;
+  photographerUrl: string | null;
 }

@@ -38,6 +38,9 @@ public class CommunityParserService {
                 .filter(p -> p.supports(url))
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException(
-                        "지원하지 않는 커뮤니티 URL입니다. (지원: Reddit, YouTube)"));
+                        "지원하지 않는 URL 형식입니다.\n" +
+                        "• Reddit: https://www.reddit.com/r/{subreddit}/comments/{id}/...\n" +
+                        "• YouTube: https://www.youtube.com/watch?v=...\n" +
+                        "검색 URL, 서브레딧 목록, 홈피드 URL은 지원하지 않습니다."));
     }
 }

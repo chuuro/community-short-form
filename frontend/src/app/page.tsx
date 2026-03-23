@@ -58,7 +58,12 @@ export default function HomePage() {
         const prog = Math.min(10 + count * 1.5, 90);
         setParseProgress({ message: '게시글 분석 중...', progress: Math.round(prog) });
 
-        if (p.status === 'PARSED' || p.status === 'COMPLETED' || p.status === 'FAILED') {
+        if (p.status === 'FAILED') {
+          clearInterval(timer);
+          setParsing(false);
+          disconnectWsRef.current?.();
+          setError('파싱에 실패했습니다. 지원되는 URL인지 확인해주세요. (Reddit, YouTube만 지원)');
+        } else if (p.status === 'PARSED' || p.status === 'COMPLETED') {
           clearInterval(timer);
           setParseProgress({ message: '완료!', progress: 100 });
           setTimeout(() => {

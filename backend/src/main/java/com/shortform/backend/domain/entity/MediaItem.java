@@ -31,6 +31,10 @@ public class MediaItem extends BaseTimeEntity {
     private Long fileSizeBytes;
 
     private boolean isLowQuality;
+    private boolean isGif;
+
+    @Column(length = 2048)
+    private String thumbnailUrl;
 
     @Column(nullable = false)
     private Integer orderIndex;
@@ -58,6 +62,8 @@ public class MediaItem extends BaseTimeEntity {
         this.durationSeconds = builder.durationSeconds;
         this.fileSizeBytes = builder.fileSizeBytes;
         this.isLowQuality = builder.isLowQuality;
+        this.isGif = builder.isGif;
+        this.thumbnailUrl = builder.thumbnailUrl;
         this.orderIndex = builder.orderIndex;
         this.exposureStartTime = builder.exposureStartTime;
         this.exposureEndTime = builder.exposureEndTime;
@@ -78,6 +84,8 @@ public class MediaItem extends BaseTimeEntity {
         private Double durationSeconds;
         private Long fileSizeBytes;
         private boolean isLowQuality = false;
+        private boolean isGif = false;
+        private String thumbnailUrl;
         private Integer orderIndex = 0;
         private Double exposureStartTime;
         private Double exposureEndTime;
@@ -94,6 +102,8 @@ public class MediaItem extends BaseTimeEntity {
         public Builder durationSeconds(Double durationSeconds) { this.durationSeconds = durationSeconds; return this; }
         public Builder fileSizeBytes(Long fileSizeBytes) { this.fileSizeBytes = fileSizeBytes; return this; }
         public Builder isLowQuality(boolean isLowQuality) { this.isLowQuality = isLowQuality; return this; }
+        public Builder isGif(boolean isGif) { this.isGif = isGif; return this; }
+        public Builder thumbnailUrl(String thumbnailUrl) { this.thumbnailUrl = thumbnailUrl; return this; }
         public Builder orderIndex(Integer orderIndex) { this.orderIndex = orderIndex; return this; }
         public Builder exposureStartTime(Double exposureStartTime) { this.exposureStartTime = exposureStartTime; return this; }
         public Builder exposureEndTime(Double exposureEndTime) { this.exposureEndTime = exposureEndTime; return this; }
@@ -113,6 +123,8 @@ public class MediaItem extends BaseTimeEntity {
     public Double getDurationSeconds() { return durationSeconds; }
     public Long getFileSizeBytes() { return fileSizeBytes; }
     public boolean isLowQuality() { return isLowQuality; }
+    public boolean isGif() { return isGif; }
+    public String getThumbnailUrl() { return thumbnailUrl; }
     public Integer getOrderIndex() { return orderIndex; }
     public Double getExposureStartTime() { return exposureStartTime; }
     public Double getExposureEndTime() { return exposureEndTime; }

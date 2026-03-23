@@ -16,6 +16,8 @@ public class MediaItemResponse {
     private Double durationSeconds;
     private Long fileSizeBytes;
     private boolean lowQuality;
+    private boolean gif;
+    private String thumbnailUrl;
     private int orderIndex;
     private Double exposureStartTime;
     private Double exposureEndTime;
@@ -34,6 +36,8 @@ public class MediaItemResponse {
         this.durationSeconds = builder.durationSeconds;
         this.fileSizeBytes = builder.fileSizeBytes;
         this.lowQuality = builder.lowQuality;
+        this.gif = builder.gif;
+        this.thumbnailUrl = builder.thumbnailUrl;
         this.orderIndex = builder.orderIndex;
         this.exposureStartTime = builder.exposureStartTime;
         this.exposureEndTime = builder.exposureEndTime;
@@ -55,6 +59,8 @@ public class MediaItemResponse {
         private Double durationSeconds;
         private Long fileSizeBytes;
         private boolean lowQuality;
+        private boolean gif;
+        private String thumbnailUrl;
         private int orderIndex;
         private Double exposureStartTime;
         private Double exposureEndTime;
@@ -72,6 +78,8 @@ public class MediaItemResponse {
         public Builder durationSeconds(Double durationSeconds) { this.durationSeconds = durationSeconds; return this; }
         public Builder fileSizeBytes(Long fileSizeBytes) { this.fileSizeBytes = fileSizeBytes; return this; }
         public Builder lowQuality(boolean lowQuality) { this.lowQuality = lowQuality; return this; }
+        public Builder gif(boolean gif) { this.gif = gif; return this; }
+        public Builder thumbnailUrl(String thumbnailUrl) { this.thumbnailUrl = thumbnailUrl; return this; }
         public Builder orderIndex(int orderIndex) { this.orderIndex = orderIndex; return this; }
         public Builder exposureStartTime(Double exposureStartTime) { this.exposureStartTime = exposureStartTime; return this; }
         public Builder exposureEndTime(Double exposureEndTime) { this.exposureEndTime = exposureEndTime; return this; }
@@ -91,6 +99,8 @@ public class MediaItemResponse {
     public Double getDurationSeconds() { return durationSeconds; }
     public Long getFileSizeBytes() { return fileSizeBytes; }
     public boolean isLowQuality() { return lowQuality; }
+    public boolean isGif() { return gif; }
+    public String getThumbnailUrl() { return thumbnailUrl; }
     public int getOrderIndex() { return orderIndex; }
     public Double getExposureStartTime() { return exposureStartTime; }
     public Double getExposureEndTime() { return exposureEndTime; }
@@ -110,6 +120,8 @@ public class MediaItemResponse {
                 .durationSeconds(item.getDurationSeconds())
                 .fileSizeBytes(item.getFileSizeBytes())
                 .lowQuality(item.isLowQuality())
+                .gif(item.isGif())
+                .thumbnailUrl(item.getThumbnailUrl())
                 .orderIndex(item.getOrderIndex())
                 .exposureStartTime(item.getExposureStartTime())
                 .exposureEndTime(item.getExposureEndTime())

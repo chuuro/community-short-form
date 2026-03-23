@@ -29,6 +29,7 @@ frontend/yarn-error.log*
 .env
 .env.local
 .env.*.local
+backend/.env
 .env.development.local
 .env.test.local
 .env.production.local
@@ -36,6 +37,11 @@ frontend/.env
 frontend/.env.local
 backend/src/main/resources/application-local.yml
 backend/src/main/resources/application-secret.yml
+
+# ===========================
+# Docker 데이터 (DB, MinIO, Redis 등)
+# ===========================
+data/
 
 # ===========================
 # 임시/출력 파일

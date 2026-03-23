@@ -8,6 +8,9 @@ import com.shortform.backend.domain.enums.RenderStatus;
 import com.shortform.backend.dto.request.RenderRequest;
 import com.shortform.backend.dto.response.RenderJobResponse;
 import com.shortform.backend.exception.ProjectNotFoundException;
+import com.shortform.backend.domain.entity.NewsArticle;
+import com.shortform.backend.domain.enums.NewsArticleStatus;
+import com.shortform.backend.repository.NewsArticleRepository;
 import com.shortform.backend.repository.ProjectRepository;
 import com.shortform.backend.repository.RenderJobRepository;
 import com.shortform.backend.websocket.RenderProgressPublisher;
@@ -30,17 +33,20 @@ public class RenderService {
 
     private final RenderJobRepository renderJobRepository;
     private final ProjectRepository projectRepository;
+    private final NewsArticleRepository newsArticleRepository;
     private final RabbitTemplate rabbitTemplate;
     private final RenderProgressPublisher progressPublisher;
     private final AppProperties appProperties;
 
     public RenderService(RenderJobRepository renderJobRepository,
                          ProjectRepository projectRepository,
+                         NewsArticleRepository newsArticleRepository,
                          RabbitTemplate rabbitTemplate,
                          RenderProgressPublisher progressPublisher,
                          AppProperties appProperties) {
         this.renderJobRepository = renderJobRepository;
         this.projectRepository = projectRepository;
+        this.newsArticleRepository = newsArticleRepository;
         this.rabbitTemplate = rabbitTemplate;
         this.progressPublisher = progressPublisher;
         this.appProperties = appProperties;
@@ -76,8 +82,9 @@ public class RenderService {
         return RenderJobResponse.from(saved);
     }
 
-    // Worker에서 진행 상태 업데이트 (RabbitMQ 수신)
-    public void updateRenderProgress(String workerJobId, int progress, String status) {
+    // Worker에서 진행 상태 업데이트 (HTTP 콜백 수신)
+    public void updateRenderProgress(String workerJobId, int progress, String status,
+                                     String outputFilePath, String errorMessage) {
         RenderJob job = renderJobRepository.findByWorkerJobId(workerJobId)
                 .orElse(null);
         if (job == null) {
@@ -88,16 +95,27 @@ public class RenderService {
         job.updateProgress(progress);
 
         if ("COMPLETED".equals(status)) {
-            job.updateStatus(RenderStatus.COMPLETED);
+            job.complete(outputFilePath);
             job.getProject().updateStatus(ProjectStatus.COMPLETED);
+            if (outputFilePath != null) {
+                job.getProject().updateOutputFilePath(outputFilePath);
+            }
+            // NewsArticle 연동: projectId로 기사 찾아 RENDERED로 업데이트
+            newsArticleRepository.findByProjectId(job.getProject().getId())
+                    .ifPresent(a -> {
+                        a.updateStatus(NewsArticleStatus.RENDERED);
+                        newsArticleRepository.save(a);
+                    });
+            log.info("렌더 완료: jobId={}, output={}", workerJobId, outputFilePath);
         } else if ("FAILED".equals(status)) {
             if (job.canRetry()) {
                 job.incrementRetry();
-                // 재시도 메시지 재발행
                 requeue(job);
+                log.info("렌더 재시도: jobId={}, retry={}", workerJobId, job.getRetryCount());
             } else {
-                job.fail("최대 재시도 횟수 초과");
+                job.fail(errorMessage != null ? errorMessage : "Worker 처리 실패");
                 job.getProject().updateStatus(ProjectStatus.FAILED);
+                log.error("렌더 최종 실패: jobId={}, error={}", workerJobId, errorMessage);
             }
         } else {
             job.updateStatus(RenderStatus.PROCESSING);
@@ -107,6 +125,11 @@ public class RenderService {
 
         // WebSocket으로 Frontend에 진행률 Push
         progressPublisher.publishProgress(job.getProject().getId(), job.getId(), progress, status);
+    }
+
+    // 기존 3-파라미터 오버로드 (하위 호환)
+    public void updateRenderProgress(String workerJobId, int progress, String status) {
+        updateRenderProgress(workerJobId, progress, status, null, null);
     }
 
     @Transactional(readOnly = true)

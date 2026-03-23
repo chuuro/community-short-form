@@ -3,6 +3,7 @@ package com.shortform.backend.controller;
 import com.shortform.backend.dto.request.CreateProjectRequest;
 import com.shortform.backend.dto.request.UpdateSubtitleRequest;
 import com.shortform.backend.dto.response.*;
+import com.shortform.backend.service.MinioService;
 import com.shortform.backend.service.ProjectService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -16,9 +17,11 @@ import java.util.List;
 public class ProjectController {
 
     private final ProjectService projectService;
+    private final MinioService minioService;
 
-    public ProjectController(ProjectService projectService) {
+    public ProjectController(ProjectService projectService, MinioService minioService) {
         this.projectService = projectService;
+        this.minioService = minioService;
     }
 
     /**
@@ -59,6 +62,16 @@ public class ProjectController {
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<ParseResultResponse>> getProject(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.ok(projectService.getProjectDetail(id)));
+    }
+
+    /**
+     * GET /api/projects/{id}/output-url
+     * 브라우저 재생용 Presigned URL (minio:9000 → localhost:9000)
+     */
+    @GetMapping("/{id}/output-url")
+    public ResponseEntity<ApiResponse<String>> getOutputUrl(@PathVariable Long id) {
+        String url = projectService.getPlayableOutputUrl(id);
+        return ResponseEntity.ok(ApiResponse.ok(url));
     }
 
     /**

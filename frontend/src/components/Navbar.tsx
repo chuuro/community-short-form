@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Video, Layers, Settings } from 'lucide-react';
+import { Video, Layers, Newspaper, Settings } from 'lucide-react';
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -41,6 +41,17 @@ export default function Navbar() {
           >
             <Layers size={15} />
             프로젝트
+          </Link>
+          <Link
+            href="/news-articles"
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              pathname?.startsWith('/news-articles')
+                ? 'bg-white/10 text-white'
+                : 'text-gray-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <Newspaper size={15} />
+            뉴스
           </Link>
           <button className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-white hover:bg-white/5 transition-all">
             <Settings size={15} />

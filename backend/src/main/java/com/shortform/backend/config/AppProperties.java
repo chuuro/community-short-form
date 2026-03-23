@@ -11,6 +11,9 @@ public class AppProperties {
     private Storage storage = new Storage();
     private RabbitMQ rabbitmq = new RabbitMQ();
     private Reddit reddit = new Reddit();
+    private NewsApi newsApi = new NewsApi();
+    private Pexels pexels = new Pexels();
+    private Minio minio = new Minio();
 
     public OpenAI getOpenai() { return openai; }
     public void setOpenai(OpenAI openai) { this.openai = openai; }
@@ -23,6 +26,76 @@ public class AppProperties {
 
     public Reddit getReddit() { return reddit; }
     public void setReddit(Reddit reddit) { this.reddit = reddit; }
+
+    public NewsApi getNewsApi() { return newsApi; }
+    public void setNewsApi(NewsApi newsApi) { this.newsApi = newsApi; }
+
+    public static class NewsApi {
+        private String apiKey;
+        private String baseUrl = "https://newsapi.org/v2";
+        private int fetchLimitOnStartup = 3;
+        private String defaultLanguage = "en";
+
+        public String getApiKey() { return apiKey; }
+        public void setApiKey(String apiKey) { this.apiKey = apiKey; }
+
+        public String getBaseUrl() { return baseUrl; }
+        public void setBaseUrl(String baseUrl) { this.baseUrl = baseUrl; }
+
+        public int getFetchLimitOnStartup() { return fetchLimitOnStartup; }
+        public void setFetchLimitOnStartup(int fetchLimitOnStartup) { this.fetchLimitOnStartup = fetchLimitOnStartup; }
+
+        public String getDefaultLanguage() { return defaultLanguage; }
+        public void setDefaultLanguage(String defaultLanguage) { this.defaultLanguage = defaultLanguage; }
+    }
+
+    public static class Minio {
+        private String endpoint = "localhost:9000";
+        private String accessKey = "minioadmin";
+        private String secretKey = "minioadmin123";
+        private String bucket = "shortform";
+        private boolean secure = false;
+
+        public String getEndpoint() { return endpoint; }
+        public void setEndpoint(String endpoint) { this.endpoint = endpoint; }
+
+        public String getAccessKey() { return accessKey; }
+        public void setAccessKey(String accessKey) { this.accessKey = accessKey; }
+
+        public String getSecretKey() { return secretKey; }
+        public void setSecretKey(String secretKey) { this.secretKey = secretKey; }
+
+        public String getBucket() { return bucket; }
+        public void setBucket(String bucket) { this.bucket = bucket; }
+
+        public boolean isSecure() { return secure; }
+        public void setSecure(boolean secure) { this.secure = secure; }
+    }
+
+    public Pexels getPexels() { return pexels; }
+    public void setPexels(Pexels pexels) { this.pexels = pexels; }
+
+    public Minio getMinio() { return minio; }
+    public void setMinio(Minio minio) { this.minio = minio; }
+
+    public static class Pexels {
+        private String apiKey;
+        private String baseUrl = "https://api.pexels.com/v1";
+        private int photosPerKeyword = 3;
+        private int videosPerKeyword = 2;
+
+        public String getApiKey() { return apiKey; }
+        public void setApiKey(String apiKey) { this.apiKey = apiKey; }
+
+        public String getBaseUrl() { return baseUrl; }
+        public void setBaseUrl(String baseUrl) { this.baseUrl = baseUrl; }
+
+        public int getPhotosPerKeyword() { return photosPerKeyword; }
+        public void setPhotosPerKeyword(int photosPerKeyword) { this.photosPerKeyword = photosPerKeyword; }
+
+        public int getVideosPerKeyword() { return videosPerKeyword; }
+        public void setVideosPerKeyword(int videosPerKeyword) { this.videosPerKeyword = videosPerKeyword; }
+    }
 
     public static class OpenAI {
         private String apiKey;

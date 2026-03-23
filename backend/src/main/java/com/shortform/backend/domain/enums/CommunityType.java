@@ -8,5 +8,6 @@ public enum CommunityType {
     DCInside,
     RULIWEB,
     CLIEN,
+    NEWS,
     UNKNOWN
 }

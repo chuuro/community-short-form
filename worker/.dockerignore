@@ -1,0 +1,14 @@
+__pycache__/
+venv/
+.venv/
+*.pyc
+*.pyo
+.env
+.git
+.gitignore
+temp/
+output/
+*.mp4
+*.mp3
+*.wav
+*.log

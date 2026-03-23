@@ -58,16 +58,21 @@ public class YoutubeParser implements CommunityParser {
 
             String title = oEmbed != null ? oEmbed.path("title").asText() : "YouTube Video";
             String thumbnailUrl = oEmbed != null ? oEmbed.path("thumbnail_url").asText() : null;
+            // YouTube maxres thumbnail
+            String maxresThumbnail = "https://img.youtube.com/vi/" + videoId + "/maxresdefault.jpg";
 
             List<ParsedMedia> mediaList = new ArrayList<>();
             mediaList.add(new ParsedMedia(
                     "https://www.youtube.com/watch?v=" + videoId,
                     MediaType.VIDEO,
                     title,
-                    0
+                    0,
+                    maxresThumbnail,
+                    false,
+                    null, null, null
             ));
 
-            return new ParsedPost(title, "", thumbnailUrl, mediaList, List.of());
+            return new ParsedPost(title, "", thumbnailUrl != null ? thumbnailUrl : maxresThumbnail, mediaList, List.of());
         } catch (Exception e) {
             log.error("YouTube 파싱 실패: {}", url, e);
             throw new RuntimeException("YouTube 영상을 파싱할 수 없습니다: " + e.getMessage());

@@ -33,6 +33,7 @@ public class ProjectService {
     private final MediaService mediaService;
     private final OpenAIService openAIService;
     private final AppProperties appProperties;
+    private final MinioService minioService;
 
     public ProjectService(ProjectRepository projectRepository,
                           MediaItemRepository mediaItemRepository,
@@ -41,7 +42,8 @@ public class ProjectService {
                           CommunityParserService communityParserService,
                           MediaService mediaService,
                           OpenAIService openAIService,
-                          AppProperties appProperties) {
+                          AppProperties appProperties,
+                          MinioService minioService) {
         this.projectRepository = projectRepository;
         this.mediaItemRepository = mediaItemRepository;
         this.subtitleRepository = subtitleRepository;
@@ -50,6 +52,7 @@ public class ProjectService {
         this.mediaService = mediaService;
         this.openAIService = openAIService;
         this.appProperties = appProperties;
+        this.minioService = minioService;
     }
 
     // 1. 프로젝트 생성 (URL 입력)
@@ -180,21 +183,40 @@ public class ProjectService {
 
         return ParseResultResponse.builder()
                 .projectId(projectId)
+                .status(project.getStatus())
+                .communityUrl(project.getCommunityUrl())
+                .communityType(project.getCommunityType())
+                .outputPlatform(project.getOutputPlatform())
                 .title(project.getTitle())
+                .description(project.getDescription())
+                .thumbnailUrl(project.getThumbnailUrl())
                 .videoCount((int) mediaItems.stream()
-                        .filter(m -> m.getMediaType().name().equals("VIDEO")).count())
+                        .filter(m -> m.getMediaType() == com.shortform.backend.domain.enums.MediaType.VIDEO && !m.isGif()).count())
                 .imageCount((int) mediaItems.stream()
-                        .filter(m -> m.getMediaType().name().equals("IMAGE")).count())
+                        .filter(m -> m.getMediaType() == com.shortform.backend.domain.enums.MediaType.IMAGE && !m.isGif()).count())
+                .textCount((int) mediaItems.stream()
+                        .filter(m -> m.getMediaType() == com.shortform.backend.domain.enums.MediaType.TEXT).count())
+                .gifCount((int) mediaItems.stream().filter(MediaItemResponse::isGif).count())
                 .popularCommentCount((int) mediaItems.stream()
                         .filter(MediaItemResponse::isPopularComment).count())
                 .lowQualityCount((int) lowQualityCount)
+                .outputFilePath(project.getOutputFilePath())
                 .mediaItems(mediaItems)
                 .subtitles(subtitles)
                 .warnings(warnings)
                 .build();
     }
 
-    // 8. Soft Delete
+    // 8. 브라우저 재생용 Presigned URL (minio:9000 → localhost:9000)
+    @Transactional(readOnly = true)
+    public String getPlayableOutputUrl(Long projectId) {
+        Project project = projectRepository.findActiveById(projectId)
+                .orElseThrow(() -> new ProjectNotFoundException(projectId));
+        String path = project.getOutputFilePath();
+        return minioService.getPlayableUrl(path);
+    }
+
+    // 9. Soft Delete
     public void deleteProject(Long projectId) {
         Project project = projectRepository.findActiveById(projectId)
                 .orElseThrow(() -> new ProjectNotFoundException(projectId));

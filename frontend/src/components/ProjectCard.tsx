@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Video, Image, FileText, Clock, ExternalLink, Trash2 } from 'lucide-react';
+import { Video, Clock, ExternalLink, Trash2 } from 'lucide-react';
 import type { ProjectResponse } from '@/types';
 
 const STATUS_CONFIG = {
@@ -20,9 +20,6 @@ interface Props {
 
 export default function ProjectCard({ project, onDelete }: Props) {
   const status = STATUS_CONFIG[project.status] ?? STATUS_CONFIG.CREATED;
-  const videoCount = project.mediaItems?.filter((m) => m.mediaType === 'VIDEO').length ?? 0;
-  const imageCount = project.mediaItems?.filter((m) => m.mediaType === 'IMAGE').length ?? 0;
-  const subtitleCount = project.subtitles?.length ?? 0;
 
   const timeAgo = (dateStr: string) => {
     const diff = Date.now() - new Date(dateStr).getTime();
@@ -92,25 +89,16 @@ export default function ProjectCard({ project, onDelete }: Props) {
             )}
           </div>
 
-          {/* 미디어 통계 */}
-          <div className="flex items-center gap-3 text-xs text-gray-500">
-            {videoCount > 0 && (
-              <span className="flex items-center gap-1">
-                <Video size={12} className="text-purple-400" />
-                {videoCount}개 영상
+          {/* 플랫폼 뱃지 */}
+          <div className="flex items-center gap-2 text-xs text-gray-500">
+            {project.communityType && (
+              <span className="flex items-center gap-1 text-purple-400">
+                <Video size={11} />
+                {project.communityType}
               </span>
             )}
-            {imageCount > 0 && (
-              <span className="flex items-center gap-1">
-                <Image size={12} className="text-blue-400" />
-                {imageCount}개 이미지
-              </span>
-            )}
-            {subtitleCount > 0 && (
-              <span className="flex items-center gap-1">
-                <FileText size={12} className="text-cyan-400" />
-                {subtitleCount}개 자막
-              </span>
+            {project.outputPlatform && (
+              <span className="text-gray-600">{project.outputPlatform.replace('_', ' ')}</span>
             )}
           </div>
 

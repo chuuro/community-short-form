@@ -1,6 +1,7 @@
 services:
 
   # ─── PostgreSQL ─────────────────────────────────────────────
+  # 볼륨: D드라이브 사용 (C드라이브 용량 절약)
   postgres:
     image: postgres:16-alpine
     container_name: shortform-postgres
@@ -12,7 +13,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - D:/community-shortform/output/postgres:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U shortform -d shortform_db"]
       interval: 10s
@@ -26,9 +27,9 @@ services:
     restart: unless-stopped
     command: redis-server --appendonly yes
     ports:
-      - "6379:6379"
+      - "16379:6379"   # 호스트 16379 (Windows 6379 포트 충돌 회피)
     volumes:
-      - redis_data:/data
+      - D:/community-shortform/output/redis:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -48,7 +49,7 @@ services:
       - "5672:5672"   # AMQP
       - "15672:15672" # Management UI
     volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
+      - D:/community-shortform/output/rabbitmq:/var/lib/rabbitmq
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 15s
@@ -56,6 +57,7 @@ services:
       retries: 5
 
   # ─── MinIO (Object Storage) ─────────────────────────────────
+  # 렌더 출력물 저장: shortform/renders/{projectId}/output_{jobId}.mp4
   minio:
     image: minio/minio:latest
     container_name: shortform-minio
@@ -68,15 +70,64 @@ services:
       - "9000:9000"   # S3 API
       - "9001:9001"   # Web Console
     volumes:
-      - minio_data:/data
+      - D:/community-shortform/output/news-articles/minio:/data
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 15s
       timeout: 10s
       retries: 5
 
-volumes:
-  postgres_data:
-  redis_data:
-  rabbitmq_data:
-  minio_data:
+  # ─── Worker (Python Celery) ──────────────────────────────────
+  worker:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+      args:
+        WHISPER_MODEL: base
+    container_name: shortform-worker
+    restart: unless-stopped
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      # Backend (호스트에서 실행 중인 Spring Boot)
+      BACKEND_URL: http://host.docker.internal:8080
+      # RabbitMQ
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      RABBITMQ_RENDER_QUEUE: render.queue
+      RABBITMQ_PREVIEW_QUEUE: preview.queue
+      RABBITMQ_EXCHANGE: shortform.exchange
+      # Redis (Celery 브로커)
+      REDIS_URL: redis://redis:6379/0
+      # MinIO (내부: minio:9000, Presigned URL: host에서 접근 가능)
+      MINIO_ENDPOINT: minio:9000
+      MINIO_PUBLIC_ENDPOINT: host.docker.internal:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin123
+      MINIO_BUCKET: shortform
+      MINIO_SECURE: "false"
+      # Whisper
+      WHISPER_MODEL: base
+      # Worker
+      WORKER_TEMP_DIR: /app/temp
+      WORKER_OUTPUT_DIR: /app/output
+      WORKER_FONTS_DIR: /app/fonts
+      WORKER_CONCURRENCY: "2"
+      LOG_LEVEL: INFO
+    volumes:
+      - D:/community-shortform/output/news-articles/worker-temp:/app/temp
+      - D:/community-shortform/output/news-articles/worker-output:/app/output
+    healthcheck:
+      test: ["CMD", "celery", "-A", "celery_app", "inspect", "ping", "--timeout", "5"]
+      interval: 30s
+      timeout: 15s
+      start_period: 60s
+      retries: 3
+
+# 볼륨: D:/community-shortform/output/ 에 저장 (C드라이브 용량 절약)
+# - news-articles/minio: MinIO 렌더 출력물 (shortform/renders/{projectId}/...)
+# - news-articles/worker-*: Worker 임시/출력 파일

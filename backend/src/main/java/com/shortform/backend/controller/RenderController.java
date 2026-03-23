@@ -57,15 +57,18 @@ public class RenderController {
     /**
      * POST /api/render/callback
      * Worker에서 렌더 진행 상태 콜백 수신
+     * payload: { jobId, progress, status, outputFilePath?, errorMessage? }
      */
     @PostMapping("/api/render/callback")
     public ResponseEntity<Void> receiveRenderCallback(
             @RequestBody Map<String, Object> payload) {
         String workerJobId = (String) payload.get("jobId");
-        int progress = (int) payload.getOrDefault("progress", 0);
+        int progress = ((Number) payload.getOrDefault("progress", 0)).intValue();
         String status = (String) payload.getOrDefault("status", "PROCESSING");
+        String outputFilePath = (String) payload.get("outputFilePath");
+        String errorMessage = (String) payload.get("errorMessage");
 
-        renderService.updateRenderProgress(workerJobId, progress, status);
+        renderService.updateRenderProgress(workerJobId, progress, status, outputFilePath, errorMessage);
         return ResponseEntity.ok().build();
     }
 }
