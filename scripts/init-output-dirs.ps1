@@ -1,12 +1,12 @@
-# D드라이브 output 디렉토리 생성 (docker-compose 볼륨용)
-$base = "D:\community-shortform\output"
+# 프로젝트 루트 기준 data 디렉토리 생성 (docker-compose 볼륨용)
+$base = Join-Path (Split-Path -Parent $PSScriptRoot) "data"
 $dirs = @(
     "$base\postgres",
     "$base\redis",
     "$base\rabbitmq",
-    "$base\news-articles\minio",
-    "$base\news-articles\worker-temp",
-    "$base\news-articles\worker-output"
+    "$base\minio",
+    "$base\worker-temp",
+    "$base\worker-output"
 )
 
 foreach ($d in $dirs) {

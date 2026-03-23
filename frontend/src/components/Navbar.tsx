@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Video, Layers, Newspaper, Settings } from 'lucide-react';
+import { Video, Layers, Newspaper, Settings, Sparkles } from 'lucide-react';
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -52,6 +52,17 @@ export default function Navbar() {
           >
             <Newspaper size={15} />
             뉴스
+          </Link>
+          <Link
+            href="/ai-script"
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              pathname?.startsWith('/ai-script')
+                ? 'bg-white/10 text-white'
+                : 'text-gray-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <Sparkles size={15} />
+            AI 영상
           </Link>
           <button className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-white hover:bg-white/5 transition-all">
             <Settings size={15} />

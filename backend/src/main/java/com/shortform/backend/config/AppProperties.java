@@ -101,6 +101,7 @@ public class AppProperties {
         private String apiKey;
         private String model = "gpt-4o";
         private String whisperModel = "whisper-1";
+        private String dalleModel = "dall-e-3";
         private String baseUrl = "https://api.openai.com/v1";
 
         public String getApiKey() { return apiKey; }
@@ -111,6 +112,9 @@ public class AppProperties {
 
         public String getWhisperModel() { return whisperModel; }
         public void setWhisperModel(String whisperModel) { this.whisperModel = whisperModel; }
+
+        public String getDalleModel() { return dalleModel; }
+        public void setDalleModel(String dalleModel) { this.dalleModel = dalleModel; }
 
         public String getBaseUrl() { return baseUrl; }
         public void setBaseUrl(String baseUrl) { this.baseUrl = baseUrl; }

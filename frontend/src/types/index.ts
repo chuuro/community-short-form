@@ -7,7 +7,7 @@ export type ProjectStatus =
   | 'FAILED';
 
 export type MediaType = 'VIDEO' | 'IMAGE' | 'AUDIO' | 'TEXT';
-export type CommunityType = 'REDDIT' | 'YOUTUBE' | 'UNKNOWN';
+export type CommunityType = 'REDDIT' | 'YOUTUBE' | 'NEWS' | 'KNOWLEDGE' | 'UNKNOWN';
 export type OutputPlatform = 'YOUTUBE_SHORTS' | 'TIKTOK' | 'INSTAGRAM_REELS';
 
 export interface MediaItemResponse {
@@ -91,6 +91,12 @@ export interface ParseResultResponse {
 
 export interface CreateProjectRequest {
   communityUrl: string;
+  outputPlatform: OutputPlatform;
+}
+
+export interface ScriptGenerateRequest {
+  topic: string;
+  sceneCount: number;
   outputPlatform: OutputPlatform;
 }
 

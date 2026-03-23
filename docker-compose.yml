@@ -13,7 +13,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - D:/community-shortform/output/postgres:/var/lib/postgresql/data
+      - ./data/postgres:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U shortform -d shortform_db"]
       interval: 10s
@@ -29,7 +29,7 @@ services:
     ports:
       - "16379:6379"   # 호스트 16379 (Windows 6379 포트 충돌 회피)
     volumes:
-      - D:/community-shortform/output/redis:/data
+      - ./data/redis:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -49,7 +49,7 @@ services:
       - "5672:5672"   # AMQP
       - "15672:15672" # Management UI
     volumes:
-      - D:/community-shortform/output/rabbitmq:/var/lib/rabbitmq
+      - ./data/rabbitmq:/var/lib/rabbitmq
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 15s
@@ -70,7 +70,7 @@ services:
       - "9000:9000"   # S3 API
       - "9001:9001"   # Web Console
     volumes:
-      - D:/community-shortform/output/news-articles/minio:/data
+      - ./data/minio:/data
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 15s
@@ -119,8 +119,8 @@ services:
       WORKER_CONCURRENCY: "2"
       LOG_LEVEL: INFO
     volumes:
-      - D:/community-shortform/output/news-articles/worker-temp:/app/temp
-      - D:/community-shortform/output/news-articles/worker-output:/app/output
+      - ./data/worker-temp:/app/temp
+      - ./data/worker-output:/app/output
     healthcheck:
       test: ["CMD", "celery", "-A", "celery_app", "inspect", "ping", "--timeout", "5"]
       interval: 30s
@@ -128,6 +128,6 @@ services:
       start_period: 60s
       retries: 3
 
-# 볼륨: D:/community-shortform/output/ 에 저장 (C드라이브 용량 절약)
-# - news-articles/minio: MinIO 렌더 출력물 (shortform/renders/{projectId}/...)
-# - news-articles/worker-*: Worker 임시/출력 파일
+# 볼륨: ./data/ 상대경로 사용 (프로젝트 루트 기준)
+# - data/minio: MinIO 렌더 출력물 (shortform/renders/{projectId}/...)
+# - data/worker-*: Worker 임시/출력 파일

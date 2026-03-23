@@ -93,20 +93,59 @@ def process_render(
 
         backend_api.send_callback(jobId, 35, "PROCESSING")
 
-        # ─── Step 4: 자막 생성 (백엔드: ASS 한글폰트 명시, Whisper: SRT) ───
+        # ─── Step 4 + 4b: 자막 생성 & TTS (NEWS는 TTS-first → Whisper 정렬) ───
         srt_path = None
-        if subtitles:
+        tts_audio_path = None
+        community_type = project.get("communityType", "")
+
+        if community_type in ("NEWS", "KNOWLEDGE") and subtitles:
+            # ── NEWS: TTS 먼저 생성 → Whisper로 재전사 → 정확한 자막 타임스탬프 ──
+            script_text = " ".join(s.get("content", "") for s in subtitles)
+            if script_text.strip():
+                logger.info("[3/6] Edge TTS 실행 중 (뉴스 내레이션)...")
+                try:
+                    tts_audio_path = tts.text_to_speech(
+                        script_text,
+                        os.path.join(work_dir, f"tts_{jobId[:8]}.mp3"),
+                    )
+                    backend_api.send_callback(jobId, 45, "PROCESSING")
+
+                    # Whisper로 TTS 재전사 → 발화 타임스탬프를 자막에 정렬
+                    logger.info("[3b/6] Whisper TTS 자막 타임스탬프 정렬 중...")
+                    aligned_sub_path = os.path.join(work_dir, f"subtitles_aligned_{jobId[:8]}.ass")
+                    fonts_dir = os.environ.get("WORKER_FONTS_DIR") or "/app/fonts"
+                    if not os.path.isdir(fonts_dir) or not os.listdir(fonts_dir):
+                        fonts_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "fonts")
+                    srt_path = transcriber.align_subtitles_with_tts(
+                        tts_audio_path, subtitles, aligned_sub_path,
+                        language="ko", fonts_dir=fonts_dir,
+                    )
+                    backend_api.send_callback(jobId, 52, "PROCESSING")
+
+                except Exception as e:
+                    logger.warning("TTS/자막 정렬 실패, 원본 자막 사용: %s", e)
+                    # 폴백: 원본 타임스탬프로 ASS 생성
+                    if subtitles:
+                        fallback_path = os.path.join(work_dir, f"subtitles_{jobId[:8]}.ass")
+                        fonts_dir = os.environ.get("WORKER_FONTS_DIR") or "/app/fonts"
+                        if not os.path.isdir(fonts_dir) or not os.listdir(fonts_dir):
+                            fonts_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "fonts")
+                        transcriber.subtitles_to_ass(subtitles, fallback_path, fonts_dir=fonts_dir)
+                        srt_path = fallback_path
+
+        elif subtitles:
+            # ── 비-NEWS: 백엔드 타임스탬프 그대로 ASS 변환 ──
             logger.info("[3/6] 백엔드 자막 → ASS 변환 중 (%d개, 한글폰트)...", len(subtitles))
             sub_path = os.path.join(work_dir, f"subtitles_{jobId[:8]}.ass")
             fonts_dir = os.environ.get("WORKER_FONTS_DIR") or "/app/fonts"
             if not os.path.isdir(fonts_dir) or not os.listdir(fonts_dir):
                 fonts_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "fonts")
             transcriber.subtitles_to_ass(subtitles, sub_path, fonts_dir=fonts_dir)
-            srt_path = sub_path  # editor에서 .ass면 ass 필터 사용
+            srt_path = sub_path
             backend_api.send_callback(jobId, 45, "PROCESSING")
 
         elif any(m.get("type") == "VIDEO" for m in media_files):
-            # 자막 없고 영상 있으면 Whisper STT
+            # ── 자막 없고 영상 있으면 Whisper STT ──
             logger.info("[3/6] Whisper STT 실행 중...")
             first_video = next(m for m in media_files if m.get("type") == "VIDEO")
             try:
@@ -115,24 +154,7 @@ def process_render(
                 )
             except Exception as e:
                 logger.warning("Whisper STT 실패 (자막 없이 계속): %s", e)
-
             backend_api.send_callback(jobId, 50, "PROCESSING")
-
-        # ─── Step 4b: NEWS 프로젝트 TTS 생성 ────────────────────
-        tts_audio_path = None
-        community_type = project.get("communityType", "")
-        if community_type == "NEWS" and subtitles:
-            script_text = " ".join(s.get("content", "") for s in subtitles)
-            if script_text.strip():
-                logger.info("[3b/6] Edge TTS 실행 중 (뉴스 내레이션)...")
-                try:
-                    tts_audio_path = tts.text_to_speech(
-                        script_text,
-                        os.path.join(work_dir, f"tts_{jobId[:8]}.mp3"),
-                    )
-                    backend_api.send_callback(jobId, 48, "PROCESSING")
-                except Exception as e:
-                    logger.warning("TTS 실패 (자막만 사용): %s", e)
 
         # ─── Step 5: FFmpeg 숏폼 영상 생성 ─────────────────────
         logger.info(

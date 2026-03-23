@@ -50,8 +50,13 @@ COPY --from=builder /usr/local/lib/python3.11 /usr/local/lib/python3.11
 COPY --from=builder /usr/local/bin /usr/local/bin
 COPY --from=builder /root/.cache/whisper /root/.cache/whisper
 
-# 소스 코드 복사
-COPY . .
+# 소스 코드 복사 (디렉토리 단위로 분리 → 변경된 디렉토리만 재빌드)
+COPY requirements.txt celery_app.py config.py consumer.py ./
+COPY services/ ./services/
+COPY tasks/ ./tasks/
+COPY utils/ ./utils/
+COPY scripts/ ./scripts/
+COPY fonts/ ./fonts/
 
 # 임시/출력 폴더 생성
 RUN mkdir -p /app/temp /app/output /app/bgm

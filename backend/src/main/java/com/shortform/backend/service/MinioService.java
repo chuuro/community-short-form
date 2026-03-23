@@ -13,6 +13,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.net.URL;
 import java.util.UUID;
@@ -46,6 +47,10 @@ public class MinioService {
     public String getPlayableUrl(String outputFilePath) {
         if (outputFilePath == null || outputFilePath.isBlank()) {
             return null;
+        }
+        // host.docker.internal → localhost 로 교체 후 처리
+        if (outputFilePath.contains("host.docker.internal")) {
+            outputFilePath = outputFilePath.replace("host.docker.internal", "localhost");
         }
         if (!outputFilePath.contains("minio") && !outputFilePath.contains("localhost")) {
             return outputFilePath;
@@ -125,6 +130,37 @@ public class MinioService {
         } catch (Exception e) {
             log.warn("Presigned URL 생성 실패: {}", e.getMessage());
             return null;
+        }
+    }
+
+    /**
+     * 외부 HTTP URL에서 바이트를 읽어 MinIO에 저장합니다.
+     * DALL-E 3 등 임시 URL 이미지를 영구 보관할 때 사용합니다.
+     *
+     * @param imageUrl  다운로드할 이미지 URL
+     * @param objectKey MinIO 저장 경로 (예: media/1/scene_0.png)
+     * @return objectKey (저장된 키)
+     */
+    public String uploadFromUrl(String imageUrl, String objectKey) {
+        try {
+            URL url = new URL(imageUrl);
+            byte[] bytes;
+            try (InputStream in = url.openStream()) {
+                bytes = in.readAllBytes();
+            }
+            minioClient.putObject(
+                    PutObjectArgs.builder()
+                            .bucket(bucket)
+                            .object(objectKey)
+                            .stream(new ByteArrayInputStream(bytes), bytes.length, -1)
+                            .contentType("image/png")
+                            .build()
+            );
+            log.info("URL → MinIO 업로드 완료: {} ({}KB)", objectKey, bytes.length / 1024);
+            return objectKey;
+        } catch (Exception e) {
+            log.error("URL → MinIO 업로드 실패: {}", e.getMessage());
+            throw new RuntimeException("이미지 업로드 실패: " + e.getMessage(), e);
         }
     }
 

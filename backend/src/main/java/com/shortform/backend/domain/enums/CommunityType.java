@@ -9,5 +9,6 @@ public enum CommunityType {
     RULIWEB,
     CLIEN,
     NEWS,
+    KNOWLEDGE,
     UNKNOWN
 }

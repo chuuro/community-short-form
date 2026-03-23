@@ -3,13 +3,17 @@ package com.shortform.backend.service;
 import com.shortform.backend.config.AppProperties;
 import com.shortform.backend.domain.entity.*;
 import com.shortform.backend.domain.enums.CommunityType;
+import com.shortform.backend.domain.enums.MediaType;
+import com.shortform.backend.domain.enums.OutputPlatform;
 import com.shortform.backend.domain.enums.ProjectStatus;
 import com.shortform.backend.dto.request.CreateProjectRequest;
+import com.shortform.backend.dto.request.ScriptGenerateRequest;
 import com.shortform.backend.dto.request.UpdateSubtitleRequest;
 import com.shortform.backend.dto.response.*;
 import com.shortform.backend.exception.ProjectNotFoundException;
 import com.shortform.backend.repository.*;
 import com.shortform.backend.service.parser.CommunityParser;
+import com.fasterxml.jackson.databind.JsonNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
@@ -108,6 +112,115 @@ public class ProjectService {
         }
     }
 
+    // ─────────────────────────────────────────────────────────────────
+    // KNOWLEDGE 타입: AI 스크립트 + DALL-E 3 이미지 프로젝트 생성
+    // ─────────────────────────────────────────────────────────────────
+
+    /**
+     * KNOWLEDGE 프로젝트를 즉시 생성하고 반환합니다.
+     * 비동기 스크립트 생성은 컨트롤러에서 별도 호출합니다.
+     */
+    public ProjectResponse createKnowledgeProject(ScriptGenerateRequest request) {
+        OutputPlatform platform = request.getOutputPlatform() != null
+                ? request.getOutputPlatform()
+                : OutputPlatform.YOUTUBE_SHORTS;
+
+        Project project = Project.builder()
+                .communityUrl("knowledge://" + request.getTopic())
+                .communityType(CommunityType.KNOWLEDGE)
+                .title(request.getTopic())
+                .outputPlatform(platform)
+                .status(ProjectStatus.PARSING)
+                .build();
+
+        return ProjectResponse.from(projectRepository.save(project));
+    }
+
+    /**
+     * GPT-4o 스크립트 생성 + DALL-E 3 이미지 생성을 비동기로 수행합니다.
+     * 각 씬마다: narration → Subtitle, dalle_prompt → DALL-E 생성 → MinIO 저장 → MediaItem
+     */
+    @Async
+    @Transactional
+    public void generateKnowledgeScriptAsync(Long projectId, String topic, int sceneCount) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ProjectNotFoundException(projectId));
+
+        try {
+            log.info("Knowledge 스크립트 생성 시작: projectId={}, topic='{}', scenes={}",
+                    projectId, topic, sceneCount);
+
+            // 1. GPT로 씬 스크립트 JSON 배열 생성
+            JsonNode scenes = openAIService.generateKnowledgeScript(topic, sceneCount);
+            if (scenes == null || scenes.isEmpty()) {
+                throw new RuntimeException("GPT 스크립트 응답이 비어있습니다.");
+            }
+
+            // 2. 각 씬: DALL-E 이미지 생성 → MinIO 업로드 → MediaItem + Subtitle 저장
+            for (int i = 0; i < scenes.size(); i++) {
+                JsonNode scene = scenes.get(i);
+                String narration  = scene.path("narration").asText("");
+                String dallePrompt = scene.path("dalle_prompt").asText("");
+
+                // DALL-E 3 이미지 생성 (9:16, 1024x1792)
+                String imageMinioKey = null;
+                String presignedUrl  = null;
+                try {
+                    String dalleUrl = openAIService.generateDalle3Image(dallePrompt);
+                    if (dalleUrl != null) {
+                        imageMinioKey = "media/" + projectId + "/scene_" + i + ".png";
+                        minioService.uploadFromUrl(dalleUrl, imageMinioKey);
+                        presignedUrl = minioService.getPresignedUrl(imageMinioKey);
+                    }
+                } catch (Exception e) {
+                    log.warn("씬 {} DALL-E/MinIO 처리 실패 (건너뜀): {}", i + 1, e.getMessage());
+                }
+
+                // MediaItem 저장
+                // sourceUrl에 "minio:" 접두사 → 워커가 MinIO 직접 다운로드
+                String dallePromptTrimmed = dallePrompt.length() > 2000
+                        ? dallePrompt.substring(0, 2000) : dallePrompt;
+                MediaItem mediaItem = MediaItem.builder()
+                        .project(project)
+                        .mediaType(MediaType.IMAGE)
+                        .sourceUrl(imageMinioKey != null ? "minio:" + imageMinioKey : null)
+                        .localPath(presignedUrl)
+                        .thumbnailUrl(presignedUrl)
+                        .orderIndex(i)
+                        .altText(dallePromptTrimmed)
+                        .isIncluded(true)
+                        .width(1024)
+                        .height(1792)
+                        .build();
+                mediaItemRepository.save(mediaItem);
+
+                // Subtitle 저장 (타임스탬프는 TTS 렌더 시 Whisper로 재정렬)
+                double startTime = i * 5.0;
+                Subtitle subtitle = Subtitle.builder()
+                        .project(project)
+                        .originalContent(narration)
+                        .content(narration)
+                        .startTime(startTime)
+                        .endTime(startTime + 5.0)
+                        .orderIndex(i)
+                        .build();
+                subtitleRepository.save(subtitle);
+
+                log.info("씬 {}/{} 처리 완료: narration={}", i + 1, scenes.size(),
+                        narration.length() > 30 ? narration.substring(0, 30) + "…" : narration);
+            }
+
+            project.updateStatus(ProjectStatus.PARSED);
+            projectRepository.save(project);
+            log.info("Knowledge 프로젝트 생성 완료: projectId={}, totalScenes={}", projectId, scenes.size());
+
+        } catch (Exception e) {
+            log.error("Knowledge 스크립트 생성 실패: projectId={}, error={}", projectId, e.getMessage(), e);
+            project.updateStatus(ProjectStatus.FAILED);
+            projectRepository.save(project);
+        }
+    }
+
     // 3. 자막 수정
     public List<SubtitleResponse> updateSubtitles(Long projectId,
                                                    UpdateSubtitleRequest request) {
@@ -200,7 +313,7 @@ public class ProjectService {
                 .popularCommentCount((int) mediaItems.stream()
                         .filter(MediaItemResponse::isPopularComment).count())
                 .lowQualityCount((int) lowQualityCount)
-                .outputFilePath(project.getOutputFilePath())
+                .outputFilePath(minioService.getPlayableUrl(project.getOutputFilePath()))
                 .mediaItems(mediaItems)
                 .subtitles(subtitles)
                 .warnings(warnings)

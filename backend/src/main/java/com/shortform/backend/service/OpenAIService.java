@@ -297,6 +297,175 @@ public class OpenAIService {
                 .build();
     }
 
+    // ─────────────────────────────────────────────────────────────────
+    // KNOWLEDGE 타입: AI 지식 숏폼 스크립트 + DALL-E 3 이미지 생성
+    // ─────────────────────────────────────────────────────────────────
+
+    /**
+     * GPT-4o로 지식 숏폼 영상 씬 스크립트 JSON 배열을 생성합니다.
+     *
+     * 반환 형식 (JSON 배열):
+     * [
+     *   {
+     *     "scene_id": 1,
+     *     "narration": "한국어 내레이션",
+     *     "dalle_prompt": "English DALL-E 3 prompt"
+     *   },
+     *   ...
+     * ]
+     */
+    public JsonNode generateKnowledgeScript(String topic, int sceneCount) {
+        String apiKey = appProperties.getOpenai().getApiKey();
+        if (apiKey == null || apiKey.isBlank()) {
+            log.warn("OpenAI API 키 없음 — Knowledge 스크립트 생성 불가");
+            return null;
+        }
+
+        String systemPrompt = """
+                You are an expert AI scriptwriter for Korean shortform (Shorts/Reels/TikTok) videos.
+                Always respond with a valid JSON array only — no markdown, no extra text.
+                Each object must contain: scene_id (int), narration (Korean text), dalle_prompt (English DALL-E 3 prompt).
+                """;
+
+        // 구조별 씬 배분 계산
+        // 필수: 1(훅) + 1(결말) = 2, 나머지는 본문/반론으로 채움
+        int hookScenes    = 1;
+        int outroScenes   = 1;
+        int contentScenes = Math.max(1, sceneCount - hookScenes - outroScenes - 1); // 본문
+        int counterScenes = sceneCount >= 5 ? 1 : 0;                                // 반론(씬5 이상일 때만)
+
+        String userPrompt = String.format("""
+                [Role]
+                You are an expert AI scriptwriter for Korean knowledge-based shortform videos.
+
+                [Task]
+                Generate a JSON script for a 9:16 vertical shortform video on the topic: "%s".
+                The script must have exactly %d scenes.
+
+                [CRITICAL — Narration Length]
+                Each narration MUST be 80 to 120 Korean characters long (spaces included).
+                Short narrations (under 60 characters) are STRICTLY FORBIDDEN.
+                Write naturally spoken Korean — like a confident narrator on TV.
+                Use vivid expressions, concrete examples, and engaging sentence rhythms.
+
+                [Script Structure — follow this exactly]
+                Scene 1 (Hook): Open with a surprising fact, recent trend, or provocative question about the topic to grab attention immediately.
+                               Example style: "혹시 알고 계셨나요? ~", "최근 ~라는 충격적인 연구 결과가 발표됐습니다."
+                Scenes 2~%d (Main Content): Explain the core content with specific facts, examples, and data. Each scene covers one distinct point.
+                %s
+                Scene %d (Outro): End with an open question, thought-provoking statement, or call to action.
+                               Example style: "여러분은 어떻게 생각하시나요?", "이 사실을 알고 나서도 생각이 같으신가요?", "댓글로 의견 남겨주세요!"
+
+                [Output Format]
+                Valid JSON array only. Each object:
+                - "scene_id": integer (1-based)
+                - "narration": 80~120 Korean characters. Natural spoken Korean. NO short sentences.
+                - "dalle_prompt": Detailed English prompt for DALL-E 3, 9:16 vertical. Include: "cinematic, photorealistic, ultra-detailed, 8k, natural lighting, vertical composition"
+
+                Respond with ONLY the JSON array. No markdown, no explanation.
+                """,
+                topic,
+                sceneCount,
+                hookScenes + contentScenes,
+                counterScenes > 0
+                    ? String.format("Scene %d (Counter-argument): Present an opposing viewpoint or common misconception about the topic, then briefly address it. Style: \"물론 ~라는 시각도 있습니다. 하지만...\"", hookScenes + contentScenes + 1)
+                    : "",
+                sceneCount
+        );
+
+        WebClient client = buildOpenAIClient();
+
+        try {
+            JsonNode response = client.post()
+                    .uri("/chat/completions")
+                    .bodyValue(Map.of(
+                            "model", appProperties.getOpenai().getModel(),
+                            "messages", List.of(
+                                    Map.of("role", "system", "content", systemPrompt),
+                                    Map.of("role", "user", "content", userPrompt)
+                            ),
+                            "max_tokens", 4000,
+                            "temperature", 0.75
+                    ))
+                    .retrieve()
+                    .bodyToMono(JsonNode.class)
+                    .block();
+
+            String raw = response != null
+                    ? response.path("choices").get(0).path("message").path("content").asText(null)
+                    : null;
+
+            if (raw == null || raw.isBlank()) {
+                log.error("GPT 응답이 비어있음");
+                return null;
+            }
+
+            // JSON 블록 추출 (```json ... ``` 형태 제거)
+            String jsonStr = raw.trim();
+            if (jsonStr.contains("```json")) {
+                int start = jsonStr.indexOf("```json") + 7;
+                int end = jsonStr.indexOf("```", start);
+                jsonStr = jsonStr.substring(start, end > 0 ? end : jsonStr.length()).trim();
+            } else if (jsonStr.startsWith("```")) {
+                jsonStr = jsonStr.substring(3, jsonStr.lastIndexOf("```")).trim();
+            }
+
+            JsonNode parsed = objectMapper.readTree(jsonStr);
+            log.info("Knowledge 스크립트 생성 완료: topic='{}', scenes={}", topic, parsed.size());
+            return parsed;
+
+        } catch (Exception e) {
+            log.error("GPT Knowledge 스크립트 생성 실패: {}", e.getMessage());
+            throw new RuntimeException("스크립트 생성 실패: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * DALL-E 3로 씬 이미지를 생성하고 임시 URL을 반환합니다.
+     * 9:16 비율 (1024x1792) 이미지를 생성합니다.
+     *
+     * @param prompt DALL-E 3 프롬프트
+     * @return 임시 이미지 URL (1시간 유효)
+     */
+    public String generateDalle3Image(String prompt) {
+        String apiKey = appProperties.getOpenai().getApiKey();
+        if (apiKey == null || apiKey.isBlank()) {
+            log.warn("OpenAI API 키 없음 — DALL-E 이미지 생성 불가");
+            return null;
+        }
+
+        WebClient client = buildOpenAIClient();
+
+        try {
+            JsonNode response = client.post()
+                    .uri("/images/generations")
+                    .bodyValue(Map.of(
+                            "model", appProperties.getOpenai().getDalleModel(),
+                            "prompt", prompt,
+                            "n", 1,
+                            "size", "1024x1792",
+                            "quality", "standard",
+                            "response_format", "url"
+                    ))
+                    .retrieve()
+                    .bodyToMono(JsonNode.class)
+                    .block();
+
+            if (response == null || !response.has("data") || response.path("data").isEmpty()) {
+                log.error("DALL-E 응답에 이미지 데이터 없음");
+                return null;
+            }
+
+            String url = response.path("data").get(0).path("url").asText(null);
+            log.info("DALL-E 3 이미지 생성 완료: {}", url != null ? "(ok)" : "null");
+            return url;
+
+        } catch (Exception e) {
+            log.error("DALL-E 3 이미지 생성 실패: {}", e.getMessage());
+            throw new RuntimeException("DALL-E 이미지 생성 실패: " + e.getMessage(), e);
+        }
+    }
+
     private org.springframework.util.MultiValueMap<String, Object> buildWhisperBody(
             byte[] audioBytes, String filePath) {
         org.springframework.util.LinkedMultiValueMap<String, Object> body =

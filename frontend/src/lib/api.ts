@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { ApiResponse, CreateProjectRequest, KeywordItem, ProjectResponse, ParseResultResponse, NewsArticleResponse, NewsArticleMediaResponse } from '@/types';
+import type { ApiResponse, CreateProjectRequest, KeywordItem, ProjectResponse, ParseResultResponse, NewsArticleResponse, NewsArticleMediaResponse, ScriptGenerateRequest } from '@/types';
 
 export interface RenderRequest {
   preview?: boolean;
@@ -63,6 +63,11 @@ export const projectApi = {
 
   getOutputUrl: (projectId: number) =>
     api.get<ApiResponse<string>>(`/api/projects/${projectId}/output-url`),
+};
+
+export const scriptApi = {
+  generate: (data: ScriptGenerateRequest) =>
+    api.post<ApiResponse<ProjectResponse>>('/api/script/generate', data),
 };
 
 export const newsArticleApi = {

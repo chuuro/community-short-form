@@ -286,7 +286,7 @@ def _create_slideshow(
         tts_duration = _get_audio_duration(tts_audio_path)
         if tts_duration > 0 and image_files:
             slide_duration = tts_duration / len(image_files)
-            slide_duration = max(1.0, min(slide_duration, 10.0))  # 1~10초 범위
+            slide_duration = max(1.0, min(slide_duration, 30.0))  # 1~30초 범위
 
     # 각 이미지를 영상으로 변환
     clips = []
@@ -338,10 +338,12 @@ def _apply_filters(
     audio_input_idx = 1
 
     # TTS 또는 BGM 오디오 입력
+    tts_duration = 0.0
     if tts_audio_path and os.path.exists(tts_audio_path):
         inputs += ["-i", tts_audio_path]
         tts_idx = audio_input_idx
         audio_input_idx += 1
+        tts_duration = _get_audio_duration(tts_audio_path)
     else:
         tts_idx = None
 
@@ -376,6 +378,17 @@ def _apply_filters(
     # 비디오 필터 체인
     vf_parts = ["setsar=1"]
 
+    # TTS가 비디오보다 길면 마지막 프레임 고정 패딩 (영상 조기종료 방지)
+    if tts_duration > 0:
+        video_duration = _get_audio_duration(input_path)
+        if video_duration > 0 and video_duration < tts_duration:
+            pad_sec = tts_duration - video_duration + 0.5
+            vf_parts.append(f"tpad=stop_mode=clone:stop_duration={pad_sec:.3f}")
+            logger.info(
+                "영상 패딩 추가: +%.1f초 (영상 %.1f초 < TTS %.1f초)",
+                pad_sec, video_duration, tts_duration,
+            )
+
     # 자막 burn-in (한글 tofu 방지: fontconfig에 /app/fonts 등록됨)
     if srt_path and os.path.exists(srt_path):
         safe_path = srt_path.replace("\\", "/").replace(":", "\\:")
@@ -405,6 +418,9 @@ def _apply_filters(
 
     if max_duration:
         cmd += ["-t", str(max_duration)]
+    elif tts_duration > 0:
+        # TTS 길이 기준으로 출력 길이 고정 (-shortest 대신 명시적 -t 사용)
+        cmd += ["-t", f"{tts_duration + 0.2:.3f}"]
 
     # 비디오 필터
     vf = ",".join(vf_parts)
@@ -424,9 +440,11 @@ def _apply_filters(
         "-c:a", "aac",
         "-b:a", "128k",
         "-movflags", "+faststart",
-        "-shortest",
-        output_path,
     ]
+    # TTS가 없을 때만 -shortest 유지 (BGM/원본 오디오 길이 동기화)
+    if tts_idx is None:
+        cmd.append("-shortest")
+    cmd.append(output_path)
 
     _run_ffmpeg(cmd, "apply_filters")
     return output_path
