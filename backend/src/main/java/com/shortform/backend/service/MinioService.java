@@ -164,6 +164,31 @@ public class MinioService {
         }
     }
 
+    /**
+     * byte[] 데이터를 MinIO에 직접 업로드합니다 (Imagen 3 base64 디코딩 결과용).
+     *
+     * @param bytes     업로드할 이미지 바이트 배열
+     * @param objectKey MinIO 저장 경로
+     * @return objectKey
+     */
+    public String uploadFromBytes(byte[] bytes, String objectKey) {
+        try {
+            minioClient.putObject(
+                    PutObjectArgs.builder()
+                            .bucket(bucket)
+                            .object(objectKey)
+                            .stream(new ByteArrayInputStream(bytes), bytes.length, -1)
+                            .contentType("image/png")
+                            .build()
+            );
+            log.info("bytes → MinIO 업로드 완료: {} ({}KB)", objectKey, bytes.length / 1024);
+            return objectKey;
+        } catch (Exception e) {
+            log.error("bytes → MinIO 업로드 실패: {}", e.getMessage());
+            throw new RuntimeException("이미지 업로드 실패: " + e.getMessage(), e);
+        }
+    }
+
     /** object key로 파일 스트림 반환 (프록시 서빙용) */
     public Resource getObjectAsResource(String objectKey) {
         try {

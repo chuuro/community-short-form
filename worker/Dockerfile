@@ -31,7 +31,7 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# FFmpeg + 한글 자막 폰트 (Noto Sans CJK KR)
+# FFmpeg + 한글 자막 폰트 (Noto Sans CJK KR + Jua 디즈니풍 귀여운 폰트)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     libsndfile1 \
@@ -44,6 +44,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
        "https://github.com/notofonts/noto-cjk/raw/main/Sans/OTF/Korean/NotoSansCJKkr-Regular.otf" \
     && printf '%s\n' '<?xml version="1.0"?>' '<!DOCTYPE fontconfig SYSTEM "fonts.dtd">' '<fontconfig><dir>/app/fonts</dir></fontconfig>' > /etc/fonts/conf.d/99-app-fonts.conf \
     && fc-cache -fv
+# Jua 폰트는 COPY fonts/ ./fonts/ 에서 로컬 파일로 가져옴 (Dockerfile 빌드 시 네트워크 불필요)
 
 # builder에서 설치된 패키지 복사
 COPY --from=builder /usr/local/lib/python3.11 /usr/local/lib/python3.11

@@ -18,6 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
@@ -36,6 +37,7 @@ public class ProjectService {
     private final CommunityParserService communityParserService;
     private final MediaService mediaService;
     private final OpenAIService openAIService;
+    private final GeminiService geminiService;
     private final AppProperties appProperties;
     private final MinioService minioService;
 
@@ -46,6 +48,7 @@ public class ProjectService {
                           CommunityParserService communityParserService,
                           MediaService mediaService,
                           OpenAIService openAIService,
+                          GeminiService geminiService,
                           AppProperties appProperties,
                           MinioService minioService) {
         this.projectRepository = projectRepository;
@@ -55,6 +58,7 @@ public class ProjectService {
         this.communityParserService = communityParserService;
         this.mediaService = mediaService;
         this.openAIService = openAIService;
+        this.geminiService = geminiService;
         this.appProperties = appProperties;
         this.minioService = minioService;
     }
@@ -137,11 +141,10 @@ public class ProjectService {
     }
 
     /**
-     * GPT-4o 스크립트 생성 + DALL-E 3 이미지 생성을 비동기로 수행합니다.
-     * 각 씬마다: narration → Subtitle, dalle_prompt → DALL-E 생성 → MinIO 저장 → MediaItem
+     * Gemini 스크립트 생성 + Imagen/DALL-E 3 이미지 생성을 비동기로 수행합니다.
+     * @Async + @Transactional 충돌 방지: @Transactional 제거, 각 저장은 자체 트랜잭션에서 처리됨
      */
     @Async
-    @Transactional
     public void generateKnowledgeScriptAsync(Long projectId, String topic, int sceneCount) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new ProjectNotFoundException(projectId));
@@ -150,10 +153,10 @@ public class ProjectService {
             log.info("Knowledge 스크립트 생성 시작: projectId={}, topic='{}', scenes={}",
                     projectId, topic, sceneCount);
 
-            // 1. GPT로 씬 스크립트 JSON 배열 생성
-            JsonNode scenes = openAIService.generateKnowledgeScript(topic, sceneCount);
+            // 1. Gemini로 씬 스크립트 JSON 배열 생성
+            JsonNode scenes = geminiService.generateKnowledgeScript(topic, sceneCount);
             if (scenes == null || scenes.isEmpty()) {
-                throw new RuntimeException("GPT 스크립트 응답이 비어있습니다.");
+                throw new RuntimeException("Gemini 스크립트 응답이 비어있습니다.");
             }
 
             // 2. 각 씬: DALL-E 이미지 생성 → MinIO 업로드 → MediaItem + Subtitle 저장
@@ -162,18 +165,29 @@ public class ProjectService {
                 String narration  = scene.path("narration").asText("");
                 String dallePrompt = scene.path("dalle_prompt").asText("");
 
-                // DALL-E 3 이미지 생성 (9:16, 1024x1792)
+                // Imagen 이미지 생성 시도 → 실패(무료티어) 시 DALL-E 3 자동 폴백
                 String imageMinioKey = null;
                 String presignedUrl  = null;
                 try {
-                    String dalleUrl = openAIService.generateDalle3Image(dallePrompt);
-                    if (dalleUrl != null) {
+                    byte[] imageBytes = geminiService.generateImagenImage(dallePrompt);
+                    if (imageBytes != null) {
+                        // Imagen 성공
                         imageMinioKey = "media/" + projectId + "/scene_" + i + ".png";
-                        minioService.uploadFromUrl(dalleUrl, imageMinioKey);
+                        minioService.uploadFromBytes(imageBytes, imageMinioKey);
                         presignedUrl = minioService.getPresignedUrl(imageMinioKey);
+                        log.info("씬 {} Imagen 이미지 사용", i + 1);
+                    } else {
+                        // Imagen null(유료 필요) → DALL-E 3 폴백
+                        log.info("씬 {} Imagen 불가 — DALL-E 3 폴백", i + 1);
+                        String dalleUrl = openAIService.generateDalle3Image(dallePrompt);
+                        if (dalleUrl != null) {
+                            imageMinioKey = "media/" + projectId + "/scene_" + i + ".png";
+                            minioService.uploadFromUrl(dalleUrl, imageMinioKey);
+                            presignedUrl = minioService.getPresignedUrl(imageMinioKey);
+                        }
                     }
                 } catch (Exception e) {
-                    log.warn("씬 {} DALL-E/MinIO 처리 실패 (건너뜀): {}", i + 1, e.getMessage());
+                    log.warn("씬 {} 이미지 처리 실패 (건너뜀): {}", i + 1, e.getMessage());
                 }
 
                 // MediaItem 저장
@@ -210,15 +224,22 @@ public class ProjectService {
                         narration.length() > 30 ? narration.substring(0, 30) + "…" : narration);
             }
 
-            project.updateStatus(ProjectStatus.PARSED);
-            projectRepository.save(project);
+            updateProjectStatus(projectId, ProjectStatus.PARSED);
             log.info("Knowledge 프로젝트 생성 완료: projectId={}, totalScenes={}", projectId, scenes.size());
 
         } catch (Exception e) {
             log.error("Knowledge 스크립트 생성 실패: projectId={}, error={}", projectId, e.getMessage(), e);
-            project.updateStatus(ProjectStatus.FAILED);
-            projectRepository.save(project);
+            updateProjectStatus(projectId, ProjectStatus.FAILED);
         }
+    }
+
+    /** 독립 트랜잭션으로 프로젝트 상태 업데이트 (async 메서드와 트랜잭션 분리) */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void updateProjectStatus(Long projectId, ProjectStatus status) {
+        projectRepository.findById(projectId).ifPresent(p -> {
+            p.updateStatus(status);
+            projectRepository.save(p);
+        });
     }
 
     // 3. 자막 수정

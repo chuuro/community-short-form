@@ -82,6 +82,15 @@ def process_render(
         if not media_items:
             raise RuntimeError("미디어 아이템이 없어 렌더링할 수 없습니다.")
 
+        # 제목 추출 (KNOWLEDGE: "knowledge://제목" 형태 or title 필드)
+        title_text = project.get("title") or ""
+        if not title_text:
+            community_url = project.get("communityUrl", "")
+            if community_url.startswith("knowledge://"):
+                title_text = community_url.replace("knowledge://", "").strip()
+        if title_text:
+            logger.info("프로젝트 제목 감지: %s", title_text)
+
         backend_api.send_callback(jobId, 12, "PROCESSING")
 
         # ─── Step 3: 미디어 파일 수집/다운로드 ─────────────────
@@ -93,16 +102,21 @@ def process_render(
 
         backend_api.send_callback(jobId, 35, "PROCESSING")
 
-        # ─── Step 4 + 4b: 자막 생성 & TTS (NEWS는 TTS-first → Whisper 정렬) ───
+        # ─── Step 4 + 4b: 자막 생성 & TTS (NEWS/KNOWLEDGE → Whisper 정렬) ───
         srt_path = None
         tts_audio_path = None
         community_type = project.get("communityType", "")
 
+        # 폰트 경로 공통 결정
+        fonts_dir = os.environ.get("WORKER_FONTS_DIR") or "/app/fonts"
+        if not os.path.isdir(fonts_dir) or not os.listdir(fonts_dir):
+            fonts_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "fonts")
+
         if community_type in ("NEWS", "KNOWLEDGE") and subtitles:
-            # ── NEWS: TTS 먼저 생성 → Whisper로 재전사 → 정확한 자막 타임스탬프 ──
+            # ── TTS 먼저 생성 → Whisper로 재전사 → 정확한 자막 타임스탬프 ──
             script_text = " ".join(s.get("content", "") for s in subtitles)
             if script_text.strip():
-                logger.info("[3/6] Edge TTS 실행 중 (뉴스 내레이션)...")
+                logger.info("[3/6] Edge TTS 실행 중...")
                 try:
                     tts_audio_path = tts.text_to_speech(
                         script_text,
@@ -111,36 +125,33 @@ def process_render(
                     backend_api.send_callback(jobId, 45, "PROCESSING")
 
                     # Whisper로 TTS 재전사 → 발화 타임스탬프를 자막에 정렬
-                    logger.info("[3b/6] Whisper TTS 자막 타임스탬프 정렬 중...")
+                    logger.info("[3b/6] Whisper TTS 자막 타임스탬프 정렬 중 (분할 합계 싱크)...")
                     aligned_sub_path = os.path.join(work_dir, f"subtitles_aligned_{jobId[:8]}.ass")
-                    fonts_dir = os.environ.get("WORKER_FONTS_DIR") or "/app/fonts"
-                    if not os.path.isdir(fonts_dir) or not os.listdir(fonts_dir):
-                        fonts_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "fonts")
                     srt_path = transcriber.align_subtitles_with_tts(
                         tts_audio_path, subtitles, aligned_sub_path,
                         language="ko", fonts_dir=fonts_dir,
+                        title_text=title_text or None,
                     )
                     backend_api.send_callback(jobId, 52, "PROCESSING")
 
                 except Exception as e:
                     logger.warning("TTS/자막 정렬 실패, 원본 자막 사용: %s", e)
-                    # 폴백: 원본 타임스탬프로 ASS 생성
                     if subtitles:
                         fallback_path = os.path.join(work_dir, f"subtitles_{jobId[:8]}.ass")
-                        fonts_dir = os.environ.get("WORKER_FONTS_DIR") or "/app/fonts"
-                        if not os.path.isdir(fonts_dir) or not os.listdir(fonts_dir):
-                            fonts_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "fonts")
-                        transcriber.subtitles_to_ass(subtitles, fallback_path, fonts_dir=fonts_dir)
+                        transcriber.subtitles_to_ass(
+                            subtitles, fallback_path, fonts_dir=fonts_dir,
+                            title_text=title_text or None,
+                        )
                         srt_path = fallback_path
 
         elif subtitles:
-            # ── 비-NEWS: 백엔드 타임스탬프 그대로 ASS 변환 ──
-            logger.info("[3/6] 백엔드 자막 → ASS 변환 중 (%d개, 한글폰트)...", len(subtitles))
+            # ── 비-NEWS/KNOWLEDGE: 백엔드 타임스탬프 그대로 ASS 변환 ──
+            logger.info("[3/6] 백엔드 자막 → 디즈니풍 ASS 변환 중 (%d개)...", len(subtitles))
             sub_path = os.path.join(work_dir, f"subtitles_{jobId[:8]}.ass")
-            fonts_dir = os.environ.get("WORKER_FONTS_DIR") or "/app/fonts"
-            if not os.path.isdir(fonts_dir) or not os.listdir(fonts_dir):
-                fonts_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "fonts")
-            transcriber.subtitles_to_ass(subtitles, sub_path, fonts_dir=fonts_dir)
+            transcriber.subtitles_to_ass(
+                subtitles, sub_path, fonts_dir=fonts_dir,
+                title_text=title_text or None,
+            )
             srt_path = sub_path
             backend_api.send_callback(jobId, 45, "PROCESSING")
 

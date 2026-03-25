@@ -51,6 +51,12 @@ app:
     whisper-model: whisper-1
     base-url: https://api.openai.com/v1
 
+  gemini:
+    api-key: ${GEMINI_API_KEY:}
+    model: gemini-2.5-flash
+    imagen-model: nano-banana-pro-preview
+    base-url: https://generativelanguage.googleapis.com
+
   storage:
     temp-dir: ${TEMP_DIR:./temp}
     output-dir: ${OUTPUT_DIR:./output}

@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Configuration;
 public class AppProperties {
 
     private OpenAI openai = new OpenAI();
+    private Gemini gemini = new Gemini();
     private Storage storage = new Storage();
     private RabbitMQ rabbitmq = new RabbitMQ();
     private Reddit reddit = new Reddit();
@@ -17,6 +18,9 @@ public class AppProperties {
 
     public OpenAI getOpenai() { return openai; }
     public void setOpenai(OpenAI openai) { this.openai = openai; }
+
+    public Gemini getGemini() { return gemini; }
+    public void setGemini(Gemini gemini) { this.gemini = gemini; }
 
     public Storage getStorage() { return storage; }
     public void setStorage(Storage storage) { this.storage = storage; }
@@ -115,6 +119,25 @@ public class AppProperties {
 
         public String getDalleModel() { return dalleModel; }
         public void setDalleModel(String dalleModel) { this.dalleModel = dalleModel; }
+
+        public String getBaseUrl() { return baseUrl; }
+        public void setBaseUrl(String baseUrl) { this.baseUrl = baseUrl; }
+    }
+
+    public static class Gemini {
+        private String apiKey;
+        private String model = "gemini-2.5-flash";
+        private String imagenModel = "imagen-4.0-fast-generate-001";
+        private String baseUrl = "https://generativelanguage.googleapis.com";
+
+        public String getApiKey() { return apiKey; }
+        public void setApiKey(String apiKey) { this.apiKey = apiKey; }
+
+        public String getModel() { return model; }
+        public void setModel(String model) { this.model = model; }
+
+        public String getImagenModel() { return imagenModel; }
+        public void setImagenModel(String imagenModel) { this.imagenModel = imagenModel; }
 
         public String getBaseUrl() { return baseUrl; }
         public void setBaseUrl(String baseUrl) { this.baseUrl = baseUrl; }
